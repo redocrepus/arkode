@@ -1,51 +1,51 @@
-# arkode README
+# arkode
 
-This is the README for your extension "arkode". After writing up a brief description, we recommend including the following sections.
+Voice Coding extension for VS Code.
+Uses fmedia to record, WhisperAPI to transcribe and ChatGPT To format the code.
 
 ## Features
+
+Hit the `pause` key to start/stop dictating code.
+
+### Help needed to describe the features
 
 Describe specific features of your extension including screenshots of your extension in action. Image paths are relative to this README file.
 
 For example if there is an image subfolder under your extension project workspace:
 
-\!\[feature X\]\(images/feature-x.png\)
-
 > Tip: Many popular extensions utilize animations. This is an excellent way to show off your extension! We recommend short, focused animations that are easy to follow.
 
 ## Requirements
 
-If you have any requirements or dependencies, add a section describing those and how to install and configure them.
+Requires fmedia. You can get it here: https://stsaz.github.io/fmedia/
 
 ## Extension Settings
 
-Include if your extension adds any VS Code settings through the `contributes.configuration` extension point.
-
-For example:
+## Extension Settings
 
 This extension contributes the following settings:
 
-* `myExtension.enable`: Enable/disable this extension.
-* `myExtension.thing`: Set to `blah` to do something.
+- `arkode.apiKey`: Your OpenAI API key. This key is required for the extension to communicate with OpenAI's services.
+
+- `arkode.fmediaPath`: The path to the `fmedia` dir.
+
+- `arkode.promptFileName`: The filename for the transcription prompt used by the Whisper API. The default value is `transcriptionPrompt.txt`. Change this if you have a different file or path for your transcription prompts.
+
+To modify these settings, go to `File > Preferences > Settings` (on Windows) or `Code > Preferences > Settings` (on macOS), and search for `Arkode`. Alternatively, these settings can be set in your workspace's `settings.json` file.
+
 
 ## Known Issues
+
+### Help needed to describe known issues
 
 Calling out known issues can help limit users opening duplicate issues against your extension.
 
 ## Release Notes
 
-Users appreciate release notes as you update your extension.
+### 0.0.1-alpha
 
-### 1.0.0
+Initial working prototype release.
 
-Initial release of ...
-
-### 1.0.1
-
-Fixed issue #.
-
-### 1.1.0
-
-Added features X, Y, and Z.
 
 ---
 

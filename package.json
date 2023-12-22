@@ -3,6 +3,11 @@
   "displayName": "arkode",
   "description": "Code using your voice, fmedia, WhisperAI and ChatGPT",
   "version": "0.0.1",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/redocrepus/arkode.git"
+  },
+  
   "engines": {
     "vscode": "^1.85.0"
   },
@@ -23,7 +28,29 @@
         "command": "arkode.inject",
         "key": "PauseBreak"
       }
-    ]
+    ],
+    "configuration" : {
+      "title": "Arkode Configuration",
+      "properties": {
+        "arkode.apiKey": {
+          "type": "string",
+          "default": "",
+          "description": "OpenAI API Key"
+        },
+        "arkode.fmediaPath": {
+          "type": "string",
+          "default": "fmedia",
+          "description": "Path to fmedia folder"
+        },
+        "arkode.promptFileName": {
+          "type": "string",
+          "default": "transcriptionPrompt.txt",
+          "description": "Transcription prompt for the Whisper API"
+        }
+
+      }
+    }
+
   },
   "scripts": {
     "vscode:prepublish": "npm run compile",

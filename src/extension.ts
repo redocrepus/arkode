@@ -15,10 +15,11 @@ import { error } from 'console';
 // import axios from 'axios';
 
 import OpenAI from "openai";
+import { get } from 'http';
 
 
 const homeDir = os.homedir();
-const extensionDir = path.join(homeDir, '.arkode');
+const extensionDir = path.join(homeDir, '.arkode__a9a21d80-ce47-4c6f-bf44-c903eb7eef11');
 
 // read API keyfrom extensionDir / apikey.txt
 const apikeyFile = path.join(extensionDir, 'apikey.txt');
@@ -32,6 +33,24 @@ catch (err) {
 	vscode.window.showErrorMessage('Failed reading apikey from file: ' + err);
 }
 
+
+// read API keyfrom extensionDir / apikey.txt
+// const apikeyFile = path.join(extensionDir, 'apikey.txt');
+// let apikey = '';
+// try {
+// 	const content = fs.readFileSync(apikeyFile, 'utf8');
+// 	apikey = content.toString();
+// }
+// catch (err) {
+// 	console.error(err);
+// 	vscode.window.showErrorMessage('Failed reading apikey from file: ' + err);
+// }
+
+
+
+// let apikey = '';
+// apikey = vscode.workspace.getConfiguration().get('arkode.apikey')!;
+
 const openai = new OpenAI(
 	{
   apiKey: apikey,
@@ -40,6 +59,18 @@ const openai = new OpenAI(
 
 interface Config {
     openapiKey: string;
+}
+
+function getActiveFileContent(): string | null {
+    const activeEditor = vscode.window.activeTextEditor;
+    if (!activeEditor) {
+        vscode.window.showInformationMessage('No active text editor found');
+        return null;
+    }
+
+    const document = activeEditor.document;
+    const text = document.getText();
+    return text;
 }
 
 async function transcribe(inputFileName: string
@@ -59,17 +90,21 @@ async function transcribe(inputFileName: string
     let promptFileName = 'transcriptionPrompt.txt';
     let languageSymbol = 'en'; // default language symbol
 
-    // if (vscode.workspace.getConfiguration().has('yourExtensionConfig.promptFileName')) {
-    //     promptFileName = vscode.workspace.getConfiguration().get('yourExtensionConfig.promptFileName')!;
-    // }
+    if (vscode.workspace.getConfiguration().has('arkode.promptFileName')) {
+        promptFileName = vscode.workspace.getConfiguration().get('arkode.promptFileName')!;
+    }
 
-    // try {
-    //     const content = await vscode.workspace.fs.readFile(vscode.Uri.file(`${extensionDir}/${promptFileName}`));
-    //     prompt = content.toString();
-    // } catch (err) {
-    //     vscode.window.showErrorMessage('Failed reading file: ' + err);
-    //     return '';
-    // }
+    try {
+        const content = await vscode.workspace.fs.readFile(vscode.Uri.file(`${extensionDir}/${promptFileName}`));
+		// print extension dir
+		console.log('extensionDir: ' + extensionDir);
+        prompt = content.toString();
+		prompt += getActiveFileContent();
+		console.log('prompt: ' + prompt);
+    } catch (err) {
+        vscode.window.showErrorMessage('Failed reading file: ' + err);
+        return '';
+    }
 
 
 
@@ -77,7 +112,7 @@ async function transcribe(inputFileName: string
     try {
         const response = await openai.audio.transcriptions.create({
 			model: "whisper-1",
-			// prompt: prompt,
+			prompt: prompt,
 			file: fs.createReadStream(inputFileName),
 			language: "en"});
         
@@ -92,7 +127,8 @@ async function transcribe(inputFileName: string
 
 
 let isRecording = false;
-let PATH = "c:/dev/ahk-whisper-paste/bin/fmedia-1.31-windows-x64/fmedia";
+
+let PATH = vscode.workspace.getConfiguration().get<string>('arkode.fmediaPath')!;
 const options: ExecOptions = {
 	env: {"PATH": PATH }
 };
@@ -127,6 +163,19 @@ function startRecording() {
 				// Do something with the transcription
 				vscode.window.showInformationMessage('Transcription: ' + transcription);
 				console.log('Transcription: ' + transcription);
+
+				const editor = vscode.window.activeTextEditor;
+				if (editor) {
+					const document = editor.document;
+					const selection = editor.selection;
+		
+		
+					editor.edit(editBuilder => {
+						editBuilder.replace(selection, transcription);
+					});
+				}
+
+
 			}
 		} catch (err) {
 			vscode.window.showErrorMessage('Error in transcription: ' + err);
