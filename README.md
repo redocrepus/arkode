@@ -3,6 +3,11 @@
 Voice Coding extension for VS Code.
 Uses fmedia to record, WhisperAPI to transcribe and ChatGPT To format the code.
 
+## Warning !!!
+
+This extension sends your code to OpenAI.
+Neither security nor privacy was a consideration when writing this extension.
+
 ## Features
 
 Hit the `pause` key to start/stop dictating code.
