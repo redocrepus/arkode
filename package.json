@@ -39,13 +39,23 @@
         },
         "arkode.fmediaPath": {
           "type": "string",
-          "default": "fmedia",
+          "default": "c:/dev/fmedia",
           "description": "Path to fmedia folder"
         },
         "arkode.promptFileName": {
           "type": "string",
           "default": "transcriptionPrompt.txt",
           "description": "Transcription prompt for the Whisper API"
+        },
+        "arkode.debugTranscriptionFileName": {
+          "type": "string",
+          "default": "debugTranscription.txt",
+          "description": "Transcription text for debugging instead of the actual transcription"
+        },
+        "arkode.model": {
+          "type": "string",
+          "default": "gpt-4",
+          "description": "ChatGPT model"
         }
 
       }

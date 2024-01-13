@@ -17,6 +17,8 @@ import { error } from 'console';
 import OpenAI from "openai";
 import { get } from 'http';
 
+let gDebug = false;
+
 
 const homeDir = os.homedir();
 const extensionDir = path.join(homeDir, '.arkode__a9a21d80-ce47-4c6f-bf44-c903eb7eef11');
@@ -32,6 +34,8 @@ catch (err) {
 	console.error(err);
 	vscode.window.showErrorMessage('Failed reading apikey from file: ' + err);
 }
+
+let gCurrentFileContents = '';
 
 
 // read API keyfrom extensionDir / apikey.txt
@@ -61,11 +65,11 @@ interface Config {
     openapiKey: string;
 }
 
-function getActiveFileContent(): string | null {
+function getActiveFileContent(): string {
     const activeEditor = vscode.window.activeTextEditor;
     if (!activeEditor) {
         vscode.window.showInformationMessage('No active text editor found');
-        return null;
+        return '';
     }
 
     const document = activeEditor.document;
@@ -86,6 +90,20 @@ async function transcribe(inputFileName: string
 	vscode.window.showInformationMessage('transcribe');
 	console.log('transcribe called');
 
+	if (gDebug){
+		let debugTranscriptionFileName = vscode.workspace.getConfiguration().get('arkode.debugTranscriptionFileName');
+		let debugTranscription = '';
+		try {
+			debugTranscription = (await vscode.workspace.fs.readFile(vscode.Uri.file(`${extensionDir}/${debugTranscriptionFileName}`))).toString();
+		} catch (err) {
+			vscode.window.showErrorMessage('Failed reading file: ' + err);
+		}
+		// If the bugged transcription is not empty, return it
+		if (debugTranscription !== '') {
+			return debugTranscription;
+		}
+	}
+
     let prompt = "This is a transcription in English, mainly about programming, coding and software development.";
     let promptFileName = 'transcriptionPrompt.txt';
     let languageSymbol = 'en'; // default language symbol
@@ -99,15 +117,13 @@ async function transcribe(inputFileName: string
 		// print extension dir
 		console.log('extensionDir: ' + extensionDir);
         prompt = content.toString();
-		prompt += getActiveFileContent();
+		gCurrentFileContents = getActiveFileContent();
+		prompt += "\n" + gCurrentFileContents;
 		console.log('prompt: ' + prompt);
     } catch (err) {
         vscode.window.showErrorMessage('Failed reading file: ' + err);
         return '';
     }
-
-
-
 
     try {
         const response = await openai.audio.transcriptions.create({
@@ -136,6 +152,31 @@ const options: ExecOptions = {
 
 let audioFilePath: string;
 
+async function codify(text: string): Promise<string> {
+	/*
+	let prompt = "```{currentFileContents}```\n\"";
+	let model="gpt-4";
+	if (vscode.workspace.getConfiguration().has('arkode.model')) {
+        model = vscode.workspace.getConfiguration().get('arkode.model')!;
+    }
+
+	try {
+        const response = await openai.chat.completions.create({
+			model: model,
+			messages: [	{"role": "system", "content": "You are a coding assistant. "},
+        				{"role": "user", "content": "Who won the world series in 2020?"},
+        				{"role": "assistant", "content": "The Los Angeles Dodgers won the World Series in 2020."},
+        				{"role": "user", "content": "Where was it played?"}]
+			
+        
+        return response.text;
+    } catch (err) {
+        vscode.window.showErrorMessage('Error creating transcription: ' + err);
+        return '';
+    }*/
+	return text;
+}
+
 function startRecording() {
 
 	if (!fs.existsSync(extensionDir)) {
@@ -160,7 +201,6 @@ function startRecording() {
 		try {
 			const transcription = await transcribe(audioFilePath);
 			if (transcription) {
-				// Do something with the transcription
 				vscode.window.showInformationMessage('Transcription: ' + transcription);
 				console.log('Transcription: ' + transcription);
 
@@ -168,10 +208,13 @@ function startRecording() {
 				if (editor) {
 					const document = editor.document;
 					const selection = editor.selection;
-		
-		
+
+					const code = await codify(transcription);		
+
+					console.log('Replacing: ' + document.getText(selection) + ' with: ' + code);
+
 					editor.edit(editBuilder => {
-						editBuilder.replace(selection, transcription);
+						editBuilder.replace(selection, code);
 					});
 				}
 
@@ -218,6 +261,13 @@ function stopRecording() {
 // This method is called when your extension is activated
 // Your extension is activated the very first time the command is executed
 export async function activate(context: vscode.ExtensionContext) {
+
+    if (context.extensionMode === vscode.ExtensionMode.Development) {
+        // This code will only execute if the extension is in debugging mode
+        console.log('Extension is running in debug mode');
+
+		gDebug = true;
+    }
 
 
 	// Use the console to output diagnostic information (console.log) and errors (console.error)
