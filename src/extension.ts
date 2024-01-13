@@ -153,28 +153,46 @@ const options: ExecOptions = {
 let gAudioFilePath: string;
 
 async function codify(text: string): Promise<string> {
-	/*
-	let prompt = "```{currentFileContents}```\n\"";
+	let code = text;
+
+	const activeEditor = vscode.window.activeTextEditor;
+	if (!activeEditor) {
+		vscode.window.showInformationMessage('No active text editor found');
+		return '';
+	}
+
+	const document = activeEditor.document;
+	const selection = activeEditor.selection;
+	const currentFileContents = document.getText();
+	const selectedText = document.getText(selection);
+
+	// Construct the prompt for ChatGPT
+	let prompt = `Current Document:\n\`\`\`\n${currentFileContents}\n\`\`\`\nSelected Text:\n\`\`\`\n${selectedText}\n\`\`\`\nTranscribed Text:\n${text}\n\nGenerate a code snippet based on the above context to replace the selected text. The response must contain only the snippet ready to be pasted into an editor and nothing else. The response must not be quoted, even not in triple ticks. The response must be indented to match the original selection.`;
+	// print the prompt to log
+	console.log('ChatGPT prompt: ' + prompt);
 	let model="gpt-4";
 	if (vscode.workspace.getConfiguration().has('arkode.model')) {
-        model = vscode.workspace.getConfiguration().get('arkode.model')!;
-    }
+		model = vscode.workspace.getConfiguration().get('arkode.model')!;
+	}
 
 	try {
-        const response = await openai.chat.completions.create({
+		const response = await gOpenai.chat.completions.create({
 			model: model,
 			messages: [	{"role": "system", "content": "You are a coding assistant. "},
-        				{"role": "user", "content": "Who won the world series in 2020?"},
-        				{"role": "assistant", "content": "The Los Angeles Dodgers won the World Series in 2020."},
-        				{"role": "user", "content": "Where was it played?"}]
+						{"role": "user", "content": prompt}]
+		});
+		let c = response.choices[0].message.content;
+		if (c){
+			code = c;
+		}
 			
-        
-        return response.text;
-    } catch (err) {
-        vscode.window.showErrorMessage('Error creating transcription: ' + err);
-        return '';
-    }*/
-	return text;
+		
+	} catch (err) {
+		vscode.window.showErrorMessage('Error creating transcription: ' + err);
+		return '';
+	}
+
+	return code;
 }
 
 function startRecording() {
@@ -216,6 +234,7 @@ function startRecording() {
 					editor.edit(editBuilder => {
 						editBuilder.replace(selection, code);
 					});
+					await vscode.commands.executeCommand('editor.action.formatSelection');
 				}
 
 
