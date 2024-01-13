@@ -20,14 +20,14 @@ import { get } from 'http';
 let gDebug = false;
 
 
-const homeDir = os.homedir();
-const extensionDir = path.join(homeDir, '.arkode__a9a21d80-ce47-4c6f-bf44-c903eb7eef11');
+const gHomeDir = os.homedir();
+const gExtensionDir = path.join(gHomeDir, '.arkode__a9a21d80-ce47-4c6f-bf44-c903eb7eef11');
 
 // read API keyfrom extensionDir / apikey.txt
-const apikeyFile = path.join(extensionDir, 'apikey.txt');
+const gApikeyFile = path.join(gExtensionDir, 'apikey.txt');
 let apikey = '';
 try {
-	const content = fs.readFileSync(apikeyFile, 'utf8');
+	const content = fs.readFileSync(gApikeyFile, 'utf8');
 	apikey = content.toString();
 }
 catch (err) {
@@ -55,7 +55,7 @@ let gCurrentFileContents = '';
 // let apikey = '';
 // apikey = vscode.workspace.getConfiguration().get('arkode.apikey')!;
 
-const openai = new OpenAI(
+const gOpenai = new OpenAI(
 	{
   apiKey: apikey,
 }
@@ -94,7 +94,7 @@ async function transcribe(inputFileName: string
 		let debugTranscriptionFileName = vscode.workspace.getConfiguration().get('arkode.debugTranscriptionFileName');
 		let debugTranscription = '';
 		try {
-			debugTranscription = (await vscode.workspace.fs.readFile(vscode.Uri.file(`${extensionDir}/${debugTranscriptionFileName}`))).toString();
+			debugTranscription = (await vscode.workspace.fs.readFile(vscode.Uri.file(`${gExtensionDir}/${debugTranscriptionFileName}`))).toString();
 		} catch (err) {
 			vscode.window.showErrorMessage('Failed reading file: ' + err);
 		}
@@ -113,9 +113,9 @@ async function transcribe(inputFileName: string
     }
 
     try {
-        const content = await vscode.workspace.fs.readFile(vscode.Uri.file(`${extensionDir}/${promptFileName}`));
+        const content = await vscode.workspace.fs.readFile(vscode.Uri.file(`${gExtensionDir}/${promptFileName}`));
 		// print extension dir
-		console.log('extensionDir: ' + extensionDir);
+		console.log('extensionDir: ' + gExtensionDir);
         prompt = content.toString();
 		gCurrentFileContents = getActiveFileContent();
 		prompt += "\n" + gCurrentFileContents;
@@ -126,7 +126,7 @@ async function transcribe(inputFileName: string
     }
 
     try {
-        const response = await openai.audio.transcriptions.create({
+        const response = await gOpenai.audio.transcriptions.create({
 			model: "whisper-1",
 			prompt: prompt,
 			file: fs.createReadStream(inputFileName),
@@ -142,7 +142,7 @@ async function transcribe(inputFileName: string
 
 
 
-let isRecording = false;
+let gIsRecording = false;
 
 let PATH = vscode.workspace.getConfiguration().get<string>('arkode.fmediaPath')!;
 const options: ExecOptions = {
@@ -150,7 +150,7 @@ const options: ExecOptions = {
 };
 
 
-let audioFilePath: string;
+let gAudioFilePath: string;
 
 async function codify(text: string): Promise<string> {
 	/*
@@ -179,10 +179,10 @@ async function codify(text: string): Promise<string> {
 
 function startRecording() {
 
-	if (!fs.existsSync(extensionDir)) {
-		fs.mkdirSync(extensionDir);
+	if (!fs.existsSync(gExtensionDir)) {
+		fs.mkdirSync(gExtensionDir);
 	}
-	const audioFilePath = path.join(extensionDir, 'recording.wav');
+	const audioFilePath = path.join(gExtensionDir, 'recording.wav');
 
 	const fmediaCommand = `fmedia --record --overwrite --mpeg-quality=16 --rate=12000 --globcmd=listen --out=${audioFilePath}`;
 	// print the command
@@ -196,7 +196,7 @@ function startRecording() {
         }
 		vscode.window.showInformationMessage('Recording Completed.');
 		console.log('Recording Completed.');
-		isRecording = false;
+		gIsRecording = false;
 
 		try {
 			const transcription = await transcribe(audioFilePath);
@@ -228,7 +228,7 @@ function startRecording() {
 	if (chp) {
 		vscode.window.showInformationMessage('Recording started...');
 		console.log('Recording started...');
-		isRecording = true;
+		gIsRecording = true;
 	}
 
 }
@@ -285,7 +285,7 @@ export async function activate(context: vscode.ExtensionContext) {
 
 
 
-				if (!isRecording) {
+				if (!gIsRecording) {
 					startRecording();
 					// vscode.window.showInformationMessage('Recording started...');
 				} else {
