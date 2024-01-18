@@ -52,6 +52,11 @@
           "default": "",
           "description": "Path to the system message file for ChatGPT"
         },
+        "arkode.debugTranscription": {
+          "type": "string",
+          "default": "",
+          "description": "Transcription for debugging"
+        },
         "arkode.model": {
           "type": "string",
           "default": "gpt-4-1106-preview",

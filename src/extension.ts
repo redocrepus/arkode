@@ -23,6 +23,7 @@ const gSettingSystemMessagePath = 'arkode.systemMessageFilePath';
 const gSettingModel = 'arkode.model';
 const gSettingFmediaPath = 'arkode.fmediaPath';
 const gSettingApikey = 'arkode.apiKey';
+const gSettingDebugTranscription = 'arkode.debugTranscription';
 
 
 
@@ -70,25 +71,17 @@ function getActiveFileContent(): string {
     return text;
 }
 
-async function transcribe(inputFileName: string
-//	, config: Config
-	): Promise<string> {
+async function transcribe(inputFileName: string): Promise<string> {
 	
-    // const workspaceFolders = vscode.workspace.workspaceFolders;
-    // if (!workspaceFolders) {
-    //     vscode.window.showErrorMessage('No workspace folder found.');
-    //     return '';
-    // }
-    // const workspaceRoot = workspaceFolders[0].uri.fsPath;
 	vscode.window.showInformationMessage('transcribe');
 	console.log('transcribe called');
 
 	if (gDebug){
 		let debugTranscription = '';
 		try {
-			debugTranscription = (await vscode.workspace.fs.readFile(vscode.Uri.file(`${gExtensionDir}/debugTranscription.txt`))).toString();
+			debugTranscription = vscode.workspace.getConfiguration().get<string>(gSettingDebugTranscription) || '';
 		} catch (err) {
-			vscode.window.showErrorMessage('Failed reading debug transcription file: ' + err);
+			vscode.window.showErrorMessage('Failed getting debug transcription from settings: ' + err);
 		}
 		if (debugTranscription !== '') {
 			return debugTranscription;
