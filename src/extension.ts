@@ -17,60 +17,53 @@ import { error } from 'console';
 import OpenAI from "openai";
 import { get } from 'http';
 
+
+const gSettingWhisperPromptFilePath = 'arkode.whisperPromptFilePath';
+const gSettingSystemMessagePath = 'arkode.systemMessageFilePath';
+const gSettingModel = 'arkode.model';
+const gSettingFmediaPath = 'arkode.fmediaPath';
+const gSettingApikey = 'arkode.apiKey';
+
+
+
+
+
 let gDebug = false;
 
 
 const gHomeDir = os.homedir();
 const gExtensionDir = path.join(gHomeDir, '.arkode__a9a21d80-ce47-4c6f-bf44-c903eb7eef11');
 
-// read API keyfrom extensionDir / apikey.txt
-const gApikeyFile = path.join(gExtensionDir, 'apikey.txt');
-let apikey = '';
-try {
-	const content = fs.readFileSync(gApikeyFile, 'utf8');
-	apikey = content.toString();
-}
-catch (err) {
-	console.error(err);
-	vscode.window.showErrorMessage('Failed reading apikey from file: ' + err);
-}
+
+
+let gOpenAI = new OpenAI(
+	{
+		apiKey: '',
+	}
+);
+
+
+
 
 let gCurrentFileContents = '';
 
 
-// read API keyfrom extensionDir / apikey.txt
-// const apikeyFile = path.join(extensionDir, 'apikey.txt');
-// let apikey = '';
-// try {
-// 	const content = fs.readFileSync(apikeyFile, 'utf8');
-// 	apikey = content.toString();
-// }
-// catch (err) {
-// 	console.error(err);
-// 	vscode.window.showErrorMessage('Failed reading apikey from file: ' + err);
-// }
 
-
-
-// let apikey = '';
-// apikey = vscode.workspace.getConfiguration().get('arkode.apikey')!;
-
-const gOpenai = new OpenAI(
-	{
-  apiKey: apikey,
+function initializeStringSetting(name: string, defaultValue: string): void {
+    const settingValue = vscode.workspace.getConfiguration().get<string>(name);
+    if (!settingValue) {
+        vscode.workspace.getConfiguration().update(name, defaultValue, vscode.ConfigurationTarget.Global);
+    }
 }
-);
 
-interface Config {
-    openapiKey: string;
-}
+
 
 function getActiveFileContent(): string {
     const activeEditor = vscode.window.activeTextEditor;
-    if (!activeEditor) {
-        vscode.window.showInformationMessage('No active text editor found');
-        return '';
-    }
+	if (!activeEditor) {
+		vscode.window.showInformationMessage('No active text editor found');
+		return '';
+	}
 
     const document = activeEditor.document;
     const text = document.getText();
@@ -91,42 +84,39 @@ async function transcribe(inputFileName: string
 	console.log('transcribe called');
 
 	if (gDebug){
-		let debugTranscriptionFileName = vscode.workspace.getConfiguration().get('arkode.debugTranscriptionFileName');
 		let debugTranscription = '';
 		try {
-			debugTranscription = (await vscode.workspace.fs.readFile(vscode.Uri.file(`${gExtensionDir}/${debugTranscriptionFileName}`))).toString();
+			debugTranscription = (await vscode.workspace.fs.readFile(vscode.Uri.file(`${gExtensionDir}/debugTranscription.txt`))).toString();
 		} catch (err) {
-			vscode.window.showErrorMessage('Failed reading file: ' + err);
+			vscode.window.showErrorMessage('Failed reading debug transcription file: ' + err);
 		}
-		// If the bugged transcription is not empty, return it
 		if (debugTranscription !== '') {
 			return debugTranscription;
 		}
 	}
 
-    let prompt = "This is a transcription in English, mainly about programming, coding and software development.";
-    let promptFileName = 'transcriptionPrompt.txt';
     let languageSymbol = 'en'; // default language symbol
-
-    if (vscode.workspace.getConfiguration().has('arkode.promptFileName')) {
-        promptFileName = vscode.workspace.getConfiguration().get('arkode.promptFileName')!;
+	// default prompt
+    let prompt = "This is a transcription in English, mainly about programming, coding and software development.";
+	let promptFilePath = '';
+    if (vscode.workspace.getConfiguration().has(gSettingWhisperPromptFilePath)) {
+        promptFilePath = vscode.workspace.getConfiguration().get(gSettingWhisperPromptFilePath)!;
     }
 
     try {
-        const content = await vscode.workspace.fs.readFile(vscode.Uri.file(`${gExtensionDir}/${promptFileName}`));
-		// print extension dir
-		console.log('extensionDir: ' + gExtensionDir);
+        const content = await vscode.workspace.fs.readFile(vscode.Uri.file(promptFilePath));
+		// console.log('extensionDir: ' + gExtensionDir);
         prompt = content.toString();
 		gCurrentFileContents = getActiveFileContent();
 		prompt += "\n" + gCurrentFileContents;
-		console.log('prompt: ' + prompt);
+		console.log('whisper prompt: ' + prompt);
     } catch (err) {
         vscode.window.showErrorMessage('Failed reading file: ' + err);
         return '';
     }
 
     try {
-        const response = await gOpenai.audio.transcriptions.create({
+        const response = await gOpenAI.audio.transcriptions.create({
 			model: "whisper-1",
 			prompt: prompt,
 			file: fs.createReadStream(inputFileName),
@@ -144,12 +134,13 @@ async function transcribe(inputFileName: string
 
 let gIsRecording = false;
 
-let PATH = vscode.workspace.getConfiguration().get<string>('arkode.fmediaPath')!;
+let PATH = vscode.workspace.getConfiguration().get<string>(gSettingFmediaPath)!;
 const options: ExecOptions = {
 	env: {"PATH": PATH }
 };
 
 
+// gAudioFilePath holds the path to the audio file used in the recording process
 let gAudioFilePath: string;
 
 async function codify(text: string): Promise<string> {
@@ -167,18 +158,36 @@ async function codify(text: string): Promise<string> {
 	const selectedText = document.getText(selection);
 
 	// Construct the prompt for ChatGPT
-	let prompt = `Current Document:\n\`\`\`\n${currentFileContents}\n\`\`\`\nSelected Text:\n\`\`\`\n${selectedText}\n\`\`\`\nTranscribed Text:\n${text}\n\nGenerate a code snippet based on the above context to replace the selected text. The response must contain only the snippet ready to be pasted into an editor and nothing else. The response must not be quoted, even not in triple ticks. The response must be indented to match the original selection.`;
+	let prompt = `Current Code:\n\`\`\`\n${currentFileContents}\n\`\`\`\nSelected Text:\n\`\`\`\n${selectedText}\n\`\`\`\nTranscribed Coding Description:\n${text}\n\n`;
+	// dump the prompt to a file
+	const promptFileName = 'lastChatGPT_prompt.txt';
+	fs.writeFileSync(path.join(gExtensionDir, promptFileName), prompt);
+
 	// print the prompt to log
 	console.log('ChatGPT prompt: ' + prompt);
-	let model="gpt-4";
-	if (vscode.workspace.getConfiguration().has('arkode.model')) {
-		model = vscode.workspace.getConfiguration().get('arkode.model')!;
+	let model = "gpt-4";
+	if (vscode.workspace.getConfiguration().has(gSettingModel)) {
+		model = vscode.workspace.getConfiguration().get(gSettingModel)!;
+	}
+
+	// default system message (fallback)
+	let systemMessage = 'You are a coding assistant. Given some "Current Code", a "Transcribed Coding Description" and "Selected Text", you should generate the code that implements the Coding description. The output should be suitable to replace the Selected Text. The output must contain only the code without any other text or symbols. Do not enclose the code in quotes or ticks, because if you do, it will not compile in context.\n\n';
+
+	let systemMessagePath = vscode.workspace.getConfiguration().get<string>(gSettingSystemMessagePath);
+	if (systemMessagePath) {
+		try {
+			systemMessage = (await vscode.workspace.fs.readFile(vscode.Uri.file(systemMessagePath))).toString();
+		} catch (err) {
+			vscode.window.showErrorMessage(`Failed reading system message file: ${err} Using default system message.`);
+		}
+	} else {
+		vscode.window.showErrorMessage('System message file path not set in settings. Using default system message.');
 	}
 
 	try {
-		const response = await gOpenai.chat.completions.create({
+		const response = await gOpenAI.chat.completions.create({
 			model: model,
-			messages: [	{"role": "system", "content": "You are a coding assistant. "},
+			messages: [	{"role": "system", "content": systemMessage},
 						{"role": "user", "content": prompt}]
 		});
 		let c = response.choices[0].message.content;
@@ -227,7 +236,7 @@ function startRecording() {
 					const document = editor.document;
 					const selection = editor.selection;
 
-					const code = await codify(transcription);		
+					const code = await codify(transcription);
 
 					console.log('Replacing: ' + document.getText(selection) + ' with: ' + code);
 
@@ -280,6 +289,52 @@ function stopRecording() {
 // This method is called when your extension is activated
 // Your extension is activated the very first time the command is executed
 export async function activate(context: vscode.ExtensionContext) {
+
+
+	//========== Initialize settings and generate default files ==========
+	let transcriptionPromptPath = path.join(gExtensionDir, 'whisperPrompt.txt');
+	initializeStringSetting(gSettingWhisperPromptFilePath, transcriptionPromptPath);
+	if (!fs.existsSync(transcriptionPromptPath)) {
+		fs.writeFileSync(transcriptionPromptPath, 'This is a transcription in English, mainly about programming, coding and software development.\n\n');
+	}
+
+	let systemMessagePath = path.join(gExtensionDir, 'systemMessage.txt');
+	initializeStringSetting(gSettingSystemMessagePath, systemMessagePath);
+	if (!fs.existsSync(systemMessagePath)) {
+		fs.writeFileSync(systemMessagePath, 'You are a coding assistant. Given some "Current Code", a "Transcribed Code Description" and "Selected Text", you should generate the code that implements the Transcribed Code Description. The Transcribed Code Description This is a transcription made by Whisper API of a recording of the code description. The code description could be just a spoken code or a description of a code change. The output should be suitable to replace the Selected Text. The output must contain only the code without any other text or symbols. Do not enclose the code in quotes or ticks, because if you do, it will not compile in context.\n\n');
+	}
+	// ========== End of Initialize settings and generate default files ==========
+	
+	let gApikey = vscode.workspace.getConfiguration().get<string>(gSettingApikey);
+	if (!gApikey) {
+		const gApikeyFile = path.join(gExtensionDir, 'apikey.txt'); // This is for development environment
+		vscode.window.showWarningMessage(`API key not set in extension settings, trying to read it from ${gApikeyFile}.`);
+		// try to read it from file
+
+		try {
+			const content = fs.readFileSync(gApikeyFile, 'utf8');
+			gApikey = content.toString();
+		}
+		catch (err) {
+			console.error(err);
+			vscode.window.showErrorMessage(`Failed reading apikey from ${gApikeyFile}: ${err}`);
+		}
+
+	}
+
+	if (gApikey) {
+		gOpenAI.apiKey = gApikey;
+	}
+	else {
+		vscode.window.showErrorMessage(`API key not set in extension settings or in apikey.txt file.`);
+	}
+
+
+
+
+
+	// print context.globalStorageUri.fsPath to log
+	console.log('globalStorageUri.fsPath: ' + context.globalStorageUri.fsPath);
 
     if (context.extensionMode === vscode.ExtensionMode.Development) {
         // This code will only execute if the extension is in debugging mode
