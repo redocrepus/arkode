@@ -26,8 +26,6 @@ Requires fmedia. You can get it here: https://stsaz.github.io/fmedia/
 
 ## Extension Settings
 
-## Extension Settings
-
 This extension contributes the following settings:
 
 - `arkode.apiKey`: Your OpenAI API key. This key is required for the extension to communicate with OpenAI's services.
