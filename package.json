@@ -2,7 +2,7 @@
   "name": "arkode",
   "displayName": "arkode",
   "description": "Code using your voice, fmedia, WhisperAI and ChatGPT",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "repository": {
     "type": "git",
     "url": "https://github.com/redocrepus/arkode.git"
