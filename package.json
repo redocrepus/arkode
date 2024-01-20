@@ -19,13 +19,13 @@
   "contributes": {
     "commands": [
       {
-        "command": "arkode.inject",
-        "title": "Inject"
+        "command": "arkode.dictateCodingRequest",
+        "title": "Dictate coding request"
       }
     ],
     "keybindings": [
       {
-        "command": "arkode.inject",
+        "command": "arkode.dictateCodingRequest",
         "key": "PauseBreak"
       }
     ],

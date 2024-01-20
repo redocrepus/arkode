@@ -26,6 +26,17 @@ const gSettingApikey = 'arkode.apiKey';
 const gSettingDebugTranscription = 'arkode.debugTranscription';
 
 
+const gDefaultSystemMessage = 'You are a coding assistant.\n' +
+		'Given some "Current Code", a "Transcribed Coding Description" and "text-to-replace",\n' +
+		'you should generate the code that implements the Coding description.\n' +
+		'The output should be suitable to be pasted instead of "text-to-replace".\n' +
+		'text-to-replace might be part of the code or a special placeholder string' +
+		'The output must contain only the code without any other text or symbols.\n' +
+		'Do not enclose the code in quotes or ticks, because if you do, it will not compile in context.\n\n';
+
+const gDefaultPrompt = 'This is a transcription in English, mainly about programming, coding and software development. It might include code snippets.\n';
+
+
 
 
 
@@ -89,8 +100,7 @@ async function transcribe(inputFileName: string): Promise<string> {
 	}
 
     let languageSymbol = 'en'; // default language symbol
-	// default prompt
-    let prompt = "This is a transcription in English, mainly about programming, coding and software development.";
+    let prompt = gDefaultPrompt;
 	let promptFilePath = '';
     if (vscode.workspace.getConfiguration().has(gSettingWhisperPromptFilePath)) {
         promptFilePath = vscode.workspace.getConfiguration().get(gSettingWhisperPromptFilePath)!;
@@ -102,7 +112,7 @@ async function transcribe(inputFileName: string): Promise<string> {
         prompt = content.toString();
 		gCurrentFileContents = getActiveFileContent();
 		prompt += "\n" + gCurrentFileContents;
-		console.log('whisper prompt: ' + prompt);
+		console.log('WhisperAI prompt: ' + prompt);
     } catch (err) {
         vscode.window.showErrorMessage('Failed reading file: ' + err);
         return '';
@@ -147,8 +157,8 @@ async function codify(text: string): Promise<string> {
 
 	const document = activeEditor.document;
 	const selection = activeEditor.selection;
+	let selectedText = document.getText(selection);
 	const currentFileContents = document.getText();
-	const selectedText = document.getText(selection);
 
 	// Construct the prompt for ChatGPT
 	let prompt = `Current Code:\n\`\`\`\n${currentFileContents}\n\`\`\`\nSelected Text:\n\`\`\`\n${selectedText}\n\`\`\`\nTranscribed Coding Description:\n${text}\n\n`;
@@ -157,8 +167,8 @@ async function codify(text: string): Promise<string> {
 	fs.writeFileSync(path.join(gExtensionDir, promptFileName), prompt);
 
 	// print the prompt to log
-	console.log('ChatGPT prompt: ' + prompt);
-	let model = "gpt-4";
+	console.log(`ChatGPT prompt: ${prompt}`);
+	let model = "gpt-4-1106-preview";
 	if (vscode.workspace.getConfiguration().has(gSettingModel)) {
 		model = vscode.workspace.getConfiguration().get(gSettingModel)!;
 	}
@@ -166,7 +176,7 @@ async function codify(text: string): Promise<string> {
 	let useJson = (model === "gpt-4-1106-preview" || model === "gpt-3.5-turbo-1106");
 
 	// default system message (fallback)
-	let systemMessage = 'You are a coding assistant. Given some "Current Code", a "Transcribed Coding Description" and "Selected Text", you should generate the code that implements the Coding description. The output should be suitable to replace the Selected Text. The output must contain only the code without any other text or symbols. Do not enclose the code in quotes or ticks, because if you do, it will not compile in context.\n\n';
+	let systemMessage = gDefaultSystemMessage;
 
 	let systemMessagePath = vscode.workspace.getConfiguration().get<string>(gSettingSystemMessagePath);
 	if (systemMessagePath) {
@@ -259,13 +269,22 @@ function startRecording() {
 				if (editor) {
 					const document = editor.document;
 					const selection = editor.selection;
+					let newSelection = selection;
+					if (selection.isEmpty) {
+						const uniqueString = 'Arkode__' + new Date().getTime().toString();
+						await editor.edit(editBuilder => {
+							editBuilder.replace(selection, uniqueString);
+						});
+						newSelection = new vscode.Selection(selection.start, selection.start.translate(0, uniqueString.length));
+						editor.selection = newSelection;
+					}
 
 					const code = await codify(transcription);
 
-					console.log('Replacing: ' + document.getText(selection) + ' with: ' + code);
+					console.log('Replacing: ' + document.getText(newSelection) + ' with: ' + code);
 
-					editor.edit(editBuilder => {
-						editBuilder.replace(selection, code);
+					await editor.edit(editBuilder => {
+						editBuilder.replace(newSelection, code);
 					});
 					await vscode.commands.executeCommand('editor.action.formatSelection');
 				}
@@ -313,19 +332,20 @@ function stopRecording() {
 // This method is called when your extension is activated
 // Your extension is activated the very first time the command is executed
 export async function activate(context: vscode.ExtensionContext) {
-
+	
+	console.log('The arkode extension "activate" started.');
 
 	//========== Initialize settings and generate default files ==========
 	let transcriptionPromptPath = path.join(gExtensionDir, 'whisperPrompt.txt');
 	initializeStringSetting(gSettingWhisperPromptFilePath, transcriptionPromptPath);
 	if (!fs.existsSync(transcriptionPromptPath)) {
-		fs.writeFileSync(transcriptionPromptPath, 'This is a transcription in English, mainly about programming, coding and software development.\n\n');
+		fs.writeFileSync(transcriptionPromptPath, gDefaultPrompt);
 	}
 
 	let systemMessagePath = path.join(gExtensionDir, 'systemMessage.txt');
 	initializeStringSetting(gSettingSystemMessagePath, systemMessagePath);
 	if (!fs.existsSync(systemMessagePath)) {
-		fs.writeFileSync(systemMessagePath, 'You are a coding assistant. Given some "Current Code", a "Transcribed Code Description" and "Selected Text", you should generate the code that implements the Transcribed Code Description. The Transcribed Code Description This is a transcription made by Whisper API of a recording of the code description. The code description could be just a spoken code or a description of a code change. The output should be suitable to replace the Selected Text. The output must contain only the code without any other text or symbols. Do not enclose the code in quotes or ticks, because if you do, it will not compile in context.\n\n');
+		fs.writeFileSync(systemMessagePath, gDefaultSystemMessage);
 	}
 	// ========== End of Initialize settings and generate default files ==========
 	
@@ -355,33 +375,21 @@ export async function activate(context: vscode.ExtensionContext) {
 
 
 
-
-
-	// print context.globalStorageUri.fsPath to log
-	console.log('globalStorageUri.fsPath: ' + context.globalStorageUri.fsPath);
+	// console.log('globalStorageUri.fsPath: ' + context.globalStorageUri.fsPath);
 
     if (context.extensionMode === vscode.ExtensionMode.Development) {
         // This code will only execute if the extension is in debugging mode
         console.log('Extension is running in debug mode');
-
 		gDebug = true;
     }
 
 
-	// Use the console to output diagnostic information (console.log) and errors (console.error)
-	// This line of code will only be executed once when your extension is activated
-	console.log('Congratulations, your extension "arkode" is now active!');
 
 	// The command has been defined in the package.json file
 	// Now provide the implementation of the command with registerCommand
 	// The commandId parameter must match the command field in package.json
-	let disposable = vscode.commands.registerCommand('arkode.inject', async () => {
+	let disposable = vscode.commands.registerCommand('arkode.dictateCodingRequest', async () => {
 		// The code you place here will be executed every time your command is executed
-		// Display a message box to the user
-		vscode.window.showInformationMessage('Injecing from arkode!');
-
-
-
 
 				if (!gIsRecording) {
 					startRecording();
@@ -395,6 +403,8 @@ export async function activate(context: vscode.ExtensionContext) {
 		});
 
 	context.subscriptions.push(disposable);
+
+	console.log('The arkode extension "activate" finished.');
 }
 
 // This method is called when your extension is deactivated
