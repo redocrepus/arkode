@@ -163,6 +163,8 @@ async function codify(text: string): Promise<string> {
 		model = vscode.workspace.getConfiguration().get(gSettingModel)!;
 	}
 
+	let useJson = (model === "gpt-4-1106-preview" || model === "gpt-3.5-turbo-1106");
+
 	// default system message (fallback)
 	let systemMessage = 'You are a coding assistant. Given some "Current Code", a "Transcribed Coding Description" and "Selected Text", you should generate the code that implements the Coding description. The output should be suitable to replace the Selected Text. The output must contain only the code without any other text or symbols. Do not enclose the code in quotes or ticks, because if you do, it will not compile in context.\n\n';
 
@@ -178,19 +180,49 @@ async function codify(text: string): Promise<string> {
 	}
 
 	try {
-		const response = await gOpenAI.chat.completions.create({
-			model: model,
-			messages: [	{"role": "system", "content": systemMessage},
-						{"role": "user", "content": prompt}]
-		});
-		let c = response.choices[0].message.content;
-		if (c){
-			code = c;
+
+		let response;
+
+		if (useJson) {
+			systemMessage += '\nThe response must be a JSON object with a single key "code" whose value is the generated code.\n\n';
+			response = await gOpenAI.chat.completions.create({
+				messages: [
+					{ "role": "system", "content": systemMessage },
+					{ "role": "user", "content": prompt }
+				],
+				model: model,
+				response_format: { type: "json_object" },
+			});
+
+			try {
+				let c = response.choices[0].message.content;
+
+				if (c) {
+					code = JSON.parse(c).code;
+				}
+
+			} catch (err) {
+				vscode.window.showErrorMessage('Failed to parse the response: ' + err);
+			}
+
+
+		} else {
+			response = await gOpenAI.chat.completions.create({
+				messages: [
+					{ "role": "system", "content": systemMessage },
+					{ "role": "user", "content": prompt }
+				],
+				model: model
+			});
+			let c = response.choices[0].message.content;
+			if (c){
+				code = c;
+			}
 		}
-			
-		
+
+
 	} catch (err) {
-		vscode.window.showErrorMessage('Error creating transcription: ' + err);
+		vscode.window.showErrorMessage('Error creating chat completion: ' + err);
 		return '';
 	}
 
