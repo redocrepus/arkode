@@ -194,19 +194,18 @@ async function codify(text: string): Promise<string> {
 				response_format: { type: "json_object" },
 			});
 
-			try {
-				let c = response.choices[0].message.content;
+			let c = response.choices[0].message.content;
 
-				if (c) {
+			if (c) {
+				try {
 					code = JSON.parse(c).code;
+				} catch (err) {
+					vscode.window.showErrorMessage('Failed to parse the response: ' + err);
 				}
-
-			} catch (err) {
-				vscode.window.showErrorMessage('Failed to parse the response: ' + err);
 			}
 
 
-		} else {
+		} else { // not useJson
 			response = await gOpenAI.chat.completions.create({
 				messages: [
 					{ "role": "system", "content": systemMessage },
