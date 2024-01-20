@@ -3,6 +3,12 @@
 Voice Coding extension for VS Code.
 Uses fmedia to record, WhisperAPI to transcribe and ChatGPT To format the code.
 
+My objective is to bootstrap a tool for hands-off coding using only voice.
+At every phase I add a little piece of functionality supporting handless coding.
+I have started with https://github.com/redocrepus/ahk-whisper-paste,
+and then used it to develop this extension.
+Now I'm using the extension to improve it.
+
 ## Warnings !!!
 
 - This extension is a POC. I have no prior experience developing VS Code extensions and there might be severe issues. Use it at your own risk
