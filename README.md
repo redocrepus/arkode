@@ -56,7 +56,11 @@ Calling out known issues can help limit users opening duplicate issues against y
   - `arkode.systemMessageFilePath` for specifying the system message file path for ChatGPT.
   - `arkode.model`: Recommended default ChatGPT model is `"gpt-4-1106-preview"`.
   - `arkode.debugTranscription` for predefined requests instead of live whisper AI queries - for debugging.
-  
+
+### Improvements
+
+- Slightly better information messages
+
 #### Changes
 - Renamed the command `arkode.inject` to `arkode.dictateCodingRequest`
 
