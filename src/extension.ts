@@ -398,8 +398,6 @@ export async function activate(context: vscode.ExtensionContext) {
 			stopRecording();
 		}
 
-
-		context.subscriptions.push(disposable);
 	});
 
 	context.subscriptions.push(disposable);
